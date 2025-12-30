@@ -8,7 +8,7 @@
         body {
             background-color: #1c1c1e;
             color: white;
-            font-family: sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
             display: flex;
             flex-direction: column;
             align-items: center;
@@ -16,6 +16,15 @@
             height: 100vh;
             margin: 0;
             overflow: hidden;
+            user-select: none;
+        }
+
+        #balance {
+            font-size: 24px;
+            font-weight: bold;
+            margin-bottom: 20px;
+            color: #ffd60a;
+            text-shadow: 0 0 10px rgba(255, 214, 10, 0.3);
         }
 
         .case-container {
@@ -27,9 +36,9 @@
             background: #2c2c2e;
             overflow: hidden;
             border-radius: 15px;
+            box-shadow: inset 0 0 20px rgba(0,0,0,0.5);
         }
 
-        /* Красная линия-указатель */
         .pointer {
             position: absolute;
             left: 50%;
@@ -39,7 +48,7 @@
             background: #ff453a;
             z-index: 10;
             transform: translateX(-50%);
-            box-shadow: 0 0 10px rgba(255, 69, 58, 0.5);
+            box-shadow: 0 0 15px rgba(255, 69, 58, 0.8);
         }
 
         .tape {
@@ -47,7 +56,6 @@
             position: absolute;
             left: 0;
             top: 25px;
-            transition: transform 5s cubic-bezier(0.15, 0, 0.15, 1); /* Плавная остановка */
             will-change: transform;
         }
 
@@ -60,36 +68,49 @@
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            border-radius: 10px;
-            font-size: 12px;
+            border-radius: 12px;
+            font-size: 14px;
             font-weight: bold;
+            text-align: center;
         }
 
-        .item.rare { border-bottom: 4px solid #5e5ce6; } /* Синий - редкий */
-        .item.epic { border-bottom: 4px solid #af52de; } /* Фиолетовый - эпик */
-        .item.legendary { border-bottom: 4px solid #ffd60a; } /* Золотой - легенда */
+        /* Цвета редкости */
+        .common { border-bottom: 4px solid #8e8e93; }
+        .rare { border-bottom: 4px solid #5e5ce6; color: #5e5ce6; }
+        .epic { border-bottom: 4px solid #af52de; color: #af52de; }
+        .legendary { border-bottom: 4px solid #ffd60a; color: #ffd60a; }
 
-        .item img {
-            width: 50px;
-            height: 50px;
+        .item-icon {
+            font-size: 30px;
             margin-bottom: 5px;
         }
 
         button {
             margin-top: 30px;
-            padding: 15px 40px;
+            padding: 16px 50px;
             font-size: 18px;
             background: #30d158;
             border: none;
-            border-radius: 12px;
+            border-radius: 16px;
             color: white;
             font-weight: bold;
             cursor: pointer;
-            box-shadow: 0 4px 15px rgba(48, 209, 88, 0.3);
+            transition: 0.2s;
+            box-shadow: 0 4px 15px rgba(48, 209, 88, 0.4);
         }
 
         button:active { transform: scale(0.95); }
-        button:disabled { background: #555; }
+        button:disabled { 
+            background: #555; 
+            box-shadow: none;
+            transform: scale(1);
+        }
+
+        .info {
+            margin-top: 15px;
+            font-size: 12px;
+            color: #8e8e93;
+        }
     </style>
 </head>
 <body>
@@ -99,59 +120,98 @@
 
     <div class="case-container">
         <div class="pointer"></div>
-        <div class="tape" id="tape">
-            </div>
+        <div id="tape" class="tape"></div>
     </div>
 
-    <button onclick="spin()" id="spinBtn">КРУТИТЬ (100 ⭐️)</button>
+    <button onclick="spin()" id="spinBtn">КРУТИТЬ ЗА 100 ⭐️</button>
+    <p class="info">Прогресс сохраняется в этом браузере</p>
 
     <script>
         const tape = document.getElementById('tape');
+        const balanceElement = document.getElementById('balance');
+        const spinBtn = document.getElementById('spinBtn');
+
+        // Список предметов: Эмодзи, Название, Награда (число), Редкость
         const itemsList = [
-            { name: '10 ⭐️', color: 'common', img: '💰' },
-            { name: '50 ⭐️', color: 'rare', img: '💎' },
-            { name: '100 ⭐️', color: 'rare', img: '💵' },
-            { name: '200 ⭐️', color: 'epic', img: '🔥' },
-            { name: '500 ⭐️', color: 'legendary', img: '👑' },
-            { name: '0 ⭐️', color: 'common', img: '💩' }
+            { name: '10 ⭐️', val: 10, color: 'common', img: '💰' },
+            { name: '30 ⭐️', val: 30, color: 'common', img: '💰' },
+            { name: '80 ⭐️', val: 80, color: 'rare', img: '💎' },
+            { name: '150 ⭐️', val: 150, color: 'rare', img: '💵' },
+            { name: '500 ⭐️', val: 500, color: 'epic', img: '🔥' },
+            { name: '2000 ⭐️', val: 2000, color: 'legendary', img: '👑' },
+            { name: '0 ⭐️', val: 0, color: 'common', img: '💩' }
         ];
 
-        // Создаем много предметов для эффекта бесконечной ленты
+        let balance = parseInt(localStorage.getItem('caserage_balance')) || 1000;
+        const spinPrice = 100;
+
+        function updateUI() {
+            balanceElement.innerText = `Баланс: ${balance} ⭐️`;
+            localStorage.setItem('caserage_balance', balance);
+        }
+
         function renderItems() {
-            for (let i = 0; i < 80; i++) {
+            tape.innerHTML = '';
+            // Генерируем 100 предметов для долгой прокрутки
+            for (let i = 0; i < 100; i++) {
                 const itemData = itemsList[Math.floor(Math.random() * itemsList.length)];
                 const div = document.createElement('div');
                 div.className = `item ${itemData.color}`;
-                div.innerHTML = `<span>${itemData.img}</span><br>${itemData.name}`;
+                div.setAttribute('data-reward', itemData.val);
+                div.innerHTML = `<div class="item-icon">${itemData.img}</div><div>${itemData.name}</div>`;
                 tape.appendChild(div);
             }
         }
 
         function spin() {
-            const btn = document.getElementById('spinBtn');
-            btn.disabled = true;
+            if (balance < spinPrice) {
+                alert('Недостаточно звезд! ⭐️');
+                return;
+            }
 
-            const itemWidth = 110; // ширина (100) + margin (5+5)
-            const randomOffset = Math.floor(Math.random() * itemsList.length);
-            const winnerIndex = 60 + randomOffset; // Остановимся где-то в конце ленты
+            // Списываем баланс
+            balance -= spinPrice;
+            updateUI();
+
+            spinBtn.disabled = true;
             
-            // Расчет позиции для центра указателя
-            const finalPosition = (winnerIndex * itemWidth) - (window.innerWidth / 2) + (itemWidth / 2);
+            const itemWidth = 110; // ширина предмета + отступы
+            const winnerIndex = 70 + Math.floor(Math.random() * 20); // Случайный победитель в конце ленты
+            const offset = (winnerIndex * itemWidth) - (tape.parentElement.offsetWidth / 2) + (itemWidth / 2);
 
+            // Сброс позиции без анимации
             tape.style.transition = 'none';
             tape.style.transform = 'translateX(0)';
-            
+
+            // Запуск анимации
             setTimeout(() => {
                 tape.style.transition = 'transform 5s cubic-bezier(0.15, 0, 0.15, 1)';
-                tape.style.transform = `translateX(-${winnerIndex * itemWidth - 195}px)`;
+                tape.style.transform = `translateX(-${offset}px)`;
             }, 50);
 
+            // Обработка результата
             setTimeout(() => {
-                alert('Выпало: ' + tape.children[winnerIndex].innerText);
-                btn.disabled = false;
+                const winnerNode = tape.children[winnerIndex];
+                const reward = parseInt(winnerNode.getAttribute('data-reward'));
+
+                balance += reward;
+                updateUI();
+
+                if (reward > spinPrice) {
+                    alert(`Победа! Вы выиграли ${reward} ⭐️`);
+                } else if (reward === 0) {
+                    alert('Упс! Пустой кейс 💩');
+                } else {
+                    alert(`Выпало: ${reward} ⭐️`);
+                }
+
+                spinBtn.disabled = false;
+                renderItems(); // Перегенерируем ленту для следующего раза
             }, 5500);
         }
 
+        // Старт
+        updateUI();
         renderItems();
     </script>
 </body>
