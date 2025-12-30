@@ -2,217 +2,102 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CaseRage - Открывай кейсы</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>CaseRage</title>
     <style>
-        body {
-            background-color: #1c1c1e;
-            color: white;
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            height: 100vh;
-            margin: 0;
-            overflow: hidden;
-            user-select: none;
-        }
-
-        #balance {
-            font-size: 24px;
-            font-weight: bold;
-            margin-bottom: 20px;
-            color: #ffd60a;
-            text-shadow: 0 0 10px rgba(255, 214, 10, 0.3);
-        }
-
-        .case-container {
-            position: relative;
-            width: 100%;
-            max-width: 500px;
-            height: 150px;
-            border: 2px solid #3a3a3c;
-            background: #2c2c2e;
-            overflow: hidden;
-            border-radius: 15px;
-            box-shadow: inset 0 0 20px rgba(0,0,0,0.5);
-        }
-
-        .pointer {
-            position: absolute;
-            left: 50%;
-            top: 0;
-            bottom: 0;
-            width: 4px;
-            background: #ff453a;
-            z-index: 10;
-            transform: translateX(-50%);
-            box-shadow: 0 0 15px rgba(255, 69, 58, 0.8);
-        }
-
-        .tape {
-            display: flex;
-            position: absolute;
-            left: 0;
-            top: 25px;
-            will-change: transform;
-        }
-
-        .item {
-            min-width: 100px;
-            height: 100px;
-            margin: 0 5px;
-            background: #3a3a3c;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            border-radius: 12px;
-            font-size: 14px;
-            font-weight: bold;
-            text-align: center;
-        }
-
-        /* Цвета редкости */
-        .common { border-bottom: 4px solid #8e8e93; }
-        .rare { border-bottom: 4px solid #5e5ce6; color: #5e5ce6; }
-        .epic { border-bottom: 4px solid #af52de; color: #af52de; }
-        .legendary { border-bottom: 4px solid #ffd60a; color: #ffd60a; }
-
-        .item-icon {
-            font-size: 30px;
-            margin-bottom: 5px;
-        }
-
-        button {
-            margin-top: 30px;
-            padding: 16px 50px;
-            font-size: 18px;
-            background: #30d158;
-            border: none;
-            border-radius: 16px;
-            color: white;
-            font-weight: bold;
-            cursor: pointer;
-            transition: 0.2s;
-            box-shadow: 0 4px 15px rgba(48, 209, 88, 0.4);
-        }
-
-        button:active { transform: scale(0.95); }
-        button:disabled { 
-            background: #555; 
-            box-shadow: none;
-            transform: scale(1);
-        }
-
-        .info {
-            margin-top: 15px;
-            font-size: 12px;
-            color: #8e8e93;
-        }
+        body { background: #1c1c1e; color: white; font-family: sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; margin: 0; overflow: hidden; }
+        #balance { font-size: 28px; font-weight: bold; margin-bottom: 20px; color: #ffd60a; }
+        .case-wrapper { position: relative; width: 100%; max-width: 400px; height: 120px; background: #2c2c2e; border: 2px solid #3a3a3c; border-radius: 12px; overflow: hidden; }
+        .pointer { position: absolute; left: 50%; top: 0; bottom: 0; width: 3px; background: #ff453a; z-index: 10; transform: translateX(-50%); }
+        .tape { display: flex; position: absolute; left: 0; top: 10px; transition: transform 5s cubic-bezier(0.15, 0, 0.15, 1); }
+        .item { min-width: 90px; height: 90px; margin: 0 5px; background: #3a3a3c; display: flex; flex-direction: column; align-items: center; justify-content: center; border-radius: 8px; font-size: 12px; border-bottom: 4px solid #8e8e93; }
+        .item.legendary { border-color: #ffd60a; color: #ffd60a; }
+        .item.rare { border-color: #5e5ce6; color: #5e5ce6; }
+        button { margin-top: 30px; padding: 15px 40px; font-size: 18px; background: #30d158; border: none; border-radius: 12px; color: white; font-weight: bold; cursor: pointer; }
+        button:disabled { background: #555; opacity: 0.7; }
     </style>
 </head>
 <body>
 
-    <h1>CaseRage 📦</h1>
-    <div id="balance">Баланс: 1000 ⭐️</div>
+    <div id="balance">1000 ⭐️</div>
 
-    <div class="case-container">
+    <div class="case-wrapper">
         <div class="pointer"></div>
         <div id="tape" class="tape"></div>
     </div>
 
-    <button onclick="spin()" id="spinBtn">КРУТИТЬ ЗА 100 ⭐️</button>
-    <p class="info">Прогресс сохраняется в этом браузере</p>
+    <button onclick="spin()" id="spinBtn">КРУТИТЬ (100)</button>
 
     <script>
-        const tape = document.getElementById('tape');
-        const balanceElement = document.getElementById('balance');
-        const spinBtn = document.getElementById('spinBtn');
-
-        // Список предметов: Эмодзи, Название, Награда (число), Редкость
-        const itemsList = [
-            { name: '10 ⭐️', val: 10, color: 'common', img: '💰' },
-            { name: '30 ⭐️', val: 30, color: 'common', img: '💰' },
-            { name: '80 ⭐️', val: 80, color: 'rare', img: '💎' },
-            { name: '150 ⭐️', val: 150, color: 'rare', img: '💵' },
-            { name: '500 ⭐️', val: 500, color: 'epic', img: '🔥' },
-            { name: '2000 ⭐️', val: 2000, color: 'legendary', img: '👑' },
-            { name: '0 ⭐️', val: 0, color: 'common', img: '💩' }
+        const items = [
+            {n: '10', v: 10, r: 'common', i: '💰'},
+            {n: '50', v: 50, r: 'common', i: '💰'},
+            {n: '120', v: 120, r: 'rare', i: '💎'},
+            {n: '300', v: 300, r: 'rare', i: '🔥'},
+            {n: '1000', v: 1000, r: 'legendary', i: '👑'},
+            {n: '0', v: 0, r: 'common', i: '💩'}
         ];
 
-        let balance = parseInt(localStorage.getItem('caserage_balance')) || 1000;
-        const spinPrice = 100;
+        let currentBalance = 1000;
+        const tape = document.getElementById('tape');
+        const btn = document.getElementById('spinBtn');
+        const balEl = document.getElementById('balance');
 
-        function updateUI() {
-            balanceElement.innerText = `Баланс: ${balance} ⭐️`;
-            localStorage.setItem('caserage_balance', balance);
+        function init() {
+            // Пытаемся загрузить из памяти, если браузер разрешает
+            try {
+                const saved = localStorage.getItem('cr_bal');
+                if (saved) currentBalance = parseInt(saved);
+            } catch (e) { console.log("Память заблокирована"); }
+            balEl.innerText = currentBalance + " ⭐️";
+            render();
         }
 
-        function renderItems() {
+        function render() {
             tape.innerHTML = '';
-            // Генерируем 100 предметов для долгой прокрутки
-            for (let i = 0; i < 100; i++) {
-                const itemData = itemsList[Math.floor(Math.random() * itemsList.length)];
-                const div = document.createElement('div');
-                div.className = `item ${itemData.color}`;
-                div.setAttribute('data-reward', itemData.val);
-                div.innerHTML = `<div class="item-icon">${itemData.img}</div><div>${itemData.name}</div>`;
-                tape.appendChild(div);
+            for (let i = 0; i < 80; i++) {
+                const it = items[Math.floor(Math.random() * items.length)];
+                const d = document.createElement('div');
+                d.className = `item ${it.r}`;
+                d.innerHTML = `<span>${it.i}</span><b>${it.n}</b>`;
+                d.setAttribute('data-v', it.v);
+                tape.appendChild(d);
             }
         }
 
         function spin() {
-            if (balance < spinPrice) {
-                alert('Недостаточно звезд! ⭐️');
-                return;
-            }
+            if (currentBalance < 100) return alert("Мало звезд!");
 
-            // Списываем баланс
-            balance -= spinPrice;
-            updateUI();
+            currentBalance -= 100;
+            balEl.innerText = currentBalance + " ⭐️";
+            btn.disabled = true;
 
-            spinBtn.disabled = true;
-            
-            const itemWidth = 110; // ширина предмета + отступы
-            const winnerIndex = 70 + Math.floor(Math.random() * 20); // Случайный победитель в конце ленты
-            const offset = (winnerIndex * itemWidth) - (tape.parentElement.offsetWidth / 2) + (itemWidth / 2);
+            const step = 100; // ширина айтема
+            const winIdx = 65; // индекс победного
+            const x = (winIdx * step) - (tape.parentElement.offsetWidth / 2) + (step / 2);
 
-            // Сброс позиции без анимации
             tape.style.transition = 'none';
             tape.style.transform = 'translateX(0)';
 
-            // Запуск анимации
             setTimeout(() => {
                 tape.style.transition = 'transform 5s cubic-bezier(0.15, 0, 0.15, 1)';
-                tape.style.transform = `translateX(-${offset}px)`;
+                tape.style.transform = `translateX(-${x}px)`;
             }, 50);
 
-            // Обработка результата
             setTimeout(() => {
-                const winnerNode = tape.children[winnerIndex];
-                const reward = parseInt(winnerNode.getAttribute('data-reward'));
-
-                balance += reward;
-                updateUI();
-
-                if (reward > spinPrice) {
-                    alert(`Победа! Вы выиграли ${reward} ⭐️`);
-                } else if (reward === 0) {
-                    alert('Упс! Пустой кейс 💩');
-                } else {
-                    alert(`Выпало: ${reward} ⭐️`);
-                }
-
-                spinBtn.disabled = false;
-                renderItems(); // Перегенерируем ленту для следующего раза
+                const winVal = parseInt(tape.children[winIdx].getAttribute('data-v'));
+                currentBalance += winVal;
+                balEl.innerText = currentBalance + " ⭐️";
+                
+                try { localStorage.setItem('cr_bal', currentBalance); } catch(e){}
+                
+                alert(winVal > 0 ? `Выпало: ${winVal} ⭐️` : "Пусто! 💩");
+                btn.disabled = false;
+                render();
             }, 5500);
         }
 
-        // Старт
-        updateUI();
-        renderItems();
+        init();
     </script>
 </body>
 </html>
