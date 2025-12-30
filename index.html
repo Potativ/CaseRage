@@ -2,21 +2,23 @@
 <html>
 <head>
     <meta charset="UTF-8">
-    <title>CaseRage</title>
+    <title>CaseRage - Live Server</title>
     <style>
         body { background: #1c1c1e; color: white; font-family: sans-serif; text-align: center; margin: 0; padding-top: 50px; }
         #balance_display { font-size: 32px; color: #ffd60a; margin-bottom: 20px; font-weight: bold; }
         .window { position: relative; width: 300px; height: 100px; border: 3px solid #3a3a3c; margin: 0 auto; overflow: hidden; background: #2c2c2e; border-radius: 10px; }
         .line { position: absolute; left: 50%; width: 2px; height: 100%; background: red; z-index: 10; margin-left: -1px; }
-        #tape { display: flex; position: absolute; left: 0; top: 10px; transition: transform 5s cubic-bezier(0.1, 0, 0.1, 1); }
+        #tape { display: flex; position: absolute; left: 0; top: 10px; }
         .item { min-width: 80px; height: 80px; margin: 0 5px; background: #3a3a3c; display: flex; align-items: center; justify-content: center; font-weight: bold; border-radius: 5px; flex-direction: column; }
         button { margin-top: 30px; padding: 15px 30px; font-size: 18px; cursor: pointer; background: #30d158; border: none; color: white; border-radius: 10px; font-weight: bold; }
         button:disabled { background: #555; }
+        .user-info { margin-bottom: 10px; color: #8e8e93; }
     </style>
 </head>
 <body>
 
-    <div id="balance_display">1000 ⭐️</div>
+    <div class="user-info">Игрок: <span id="user_name">Player1</span></div>
+    <div id="balance_display">Загрузка...</div>
 
     <div class="window">
         <div class="line"></div>
@@ -26,74 +28,87 @@
     <button id="spin_button" onclick="startSpin()">КРУТИТЬ (100 ⭐️)</button>
 
     <script>
-        // 1. Настройки игры
-        var myBalance = 1000;
-        var isSpinning = false;
-        var itemsData = [
-            {n: "0", v: 0, i: "💩"},
-            {n: "20", v: 20, i: "💰"},
-            {n: "100", v: 100, i: "💵"},
-            {n: "500", v: 500, i: "💎"},
-            {n: "1000", v: 1000, i: "👑"}
-        ];
+        const API_URL = "http://localhost:3000";
+        const USERNAME = "Player1"; // В будущем заменим на ID из Телеграм
+        let isSpinning = false;
 
-        // 2. Функция отрисовки ленты
-        function buildTape() {
-            var tape = document.getElementById('tape');
+        // 1. Загрузка баланса с сервера при старте
+        async function loadBalance() {
+            try {
+                const response = await fetch(`${API_URL}/get-balance/${USERNAME}`);
+                const data = await response.json();
+                document.getElementById('balance_display').innerHTML = data.balance + " ⭐️";
+            } catch (e) {
+                console.error("Ошибка связи с сервером");
+                document.getElementById('balance_display').innerHTML = "Ошибка сервера";
+            }
+        }
+
+        // 2. Отрисовка ленты
+        function buildTape(winValue = null) {
+            const tape = document.getElementById('tape');
             tape.innerHTML = '';
             tape.style.transition = 'none';
             tape.style.transform = 'translateX(0)';
             
-            // Создаем 80 предметов
-            for (var i = 0; i < 80; i++) {
-                var randomItem = itemsData[Math.floor(Math.random() * itemsData.length)];
-                var div = document.createElement('div');
+            for (let i = 0; i < 80; i++) {
+                let val = [0, 20, 50, 150, 500, 1000][Math.floor(Math.random() * 6)];
+                if (i === 60 && winValue !== null) val = winValue; // Подменяем 60-й айтем на реальный выигрыш
+
+                const div = document.createElement('div');
                 div.className = 'item';
-                div.innerHTML = '<span>'+randomItem.i+'</span>' + randomItem.n;
-                div.setAttribute('data-value', randomItem.v);
+                div.innerHTML = `<span>🎁</span> ${val}`;
                 tape.appendChild(div);
             }
         }
 
-        // 3. Главная функция крутки
-        function startSpin() {
+        // 3. Крутка через сервер
+        async function startSpin() {
             if (isSpinning) return;
-            if (myBalance < 100) {
-                alert("Недостаточно денег!");
-                return;
-            }
 
-            // Убавляем баланс сразу
-            myBalance = myBalance - 100;
-            document.getElementById('balance_display').innerHTML = myBalance + " ⭐️";
-            
-            isSpinning = true;
-            document.getElementById('spin_button').disabled = true;
+            try {
+                const btn = document.getElementById('spin_button');
+                btn.disabled = true;
 
-            var tape = document.getElementById('tape');
-            var winnerIndex = 60; // Выбираем 60-й предмет как победителя
-            var moveX = (winnerIndex * 90) - 110; // 90 - это ширина айтема с отступами
+                // Запрос к серверу на крутку
+                const response = await fetch(`${API_URL}/spin`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username: USERNAME })
+                });
+                const data = await response.json();
 
-            tape.style.transition = 'transform 5s cubic-bezier(0.1, 0, 0.1, 1)';
-            tape.style.transform = 'translateX(-' + moveX + 'px)';
+                if (!data.success) {
+                    alert(data.error);
+                    btn.disabled = false;
+                    return;
+                }
 
-            // Ждем окончания анимации
-            setTimeout(function() {
-                var winValue = parseInt(tape.children[winnerIndex].getAttribute('data-value'));
-                
-                // Прибавляем выигрыш
-                myBalance = myBalance + winValue;
-                document.getElementById('balance_display').innerHTML = myBalance + " ⭐️";
-                
-                alert("Выпало: " + winValue);
-                
-                isSpinning = false;
+                isSpinning = true;
+                buildTape(data.winValue); // Готовим ленту с результатом
+
+                const tape = document.getElementById('tape');
+                const moveX = (60 * 90) - 110;
+
+                setTimeout(() => {
+                    tape.style.transition = 'transform 5s cubic-bezier(0.1, 0, 0.1, 1)';
+                    tape.style.transform = `translateX(-${moveX}px)`;
+                }, 50);
+
+                setTimeout(() => {
+                    document.getElementById('balance_display').innerHTML = data.newBalance + " ⭐️";
+                    alert(`Результат: ${data.winValue} ⭐️`);
+                    isSpinning = false;
+                    btn.disabled = false;
+                }, 5500);
+
+            } catch (e) {
+                alert("Нет связи с сервером!");
                 document.getElementById('spin_button').disabled = false;
-                buildTape(); // Пересобираем ленту
-            }, 5500);
+            }
         }
 
-        // Запуск при загрузке
+        loadBalance();
         buildTape();
     </script>
 </body>
